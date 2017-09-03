@@ -17,9 +17,9 @@ def display_image(img, win_name):
     # Not Destroying windows for comparison
 
 
-def resize_image(img, file_name, rewrite=False):
+def resize_image(img, file_name, fx=0.8, fy=0.8, rewrite=False):
 
-    img = cv2.resize(img, None, fx=0.8, fy=0.8)
+    img = cv2.resize(img, None, fx, fy)
 
     if rewrite == True:
         cv2.imwrite(file_name, img)
@@ -58,7 +58,7 @@ new_img = np.array([row / 2 for row in img])
 display_image(new_img,
               scalar_mod_img_win)  #display after dividing each pixel by 2
 
-new_img = cv2.resize(img, None, fx=0.5, fy=0.5)
+new_img = resize_image(img, None, file_name, 0.5, 0.5)
 display_image(new_img, resize_img_win)  #display after resizing the image
 
 cv2.destroyAllWindows()

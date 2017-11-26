@@ -16,11 +16,11 @@ import model
 from dataset import TextDataset
 
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    '--dataset',
-    required=True,
-    default='folder',
-    help='cifar10 | lsun | imagenet | folder | lfw | fake')
+# parser.add_argument(
+#     '--dataset',
+#     required=True,
+#     default='folder',
+#     help='cifar10 | lsun | imagenet | folder | lfw | fake')
 parser.add_argument(
     '--dataroot', required=True, default='./data/coco', help='path to dataset')
 parser.add_argument(
@@ -32,11 +32,11 @@ parser.add_argument(
     type=int,
     default=64,
     help='the height / width of the input image to network')
-parser.add_argument(
-    '--nte',
-    type=int,
-    default=1024,
-    help='the size of the text embedding vector')
+# parser.add_argument(
+#     '--nte',
+#     type=int,
+#     default=1024,
+#     help='the size of the text embedding vector')
 parser.add_argument(
     '--nt',
     type=int,
@@ -192,7 +192,7 @@ fixed_noise = Variable(fixed_noise)
 optimizerD = optim.Adam(netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
 optimizerG = optim.Adam(netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
 
-## TODO: Change the error loss function to include embeddings [refer main_cls.lua on the original paper repo]
+## Completed TODO: Change the error loss function to include embeddings [refer main_cls.lua on the original paper repo]
 
 for epoch in range(opt.niter):
     for i, data in enumerate(dataloader, 0):
@@ -218,8 +218,15 @@ for epoch in range(opt.niter):
 
         output = netD(inputv, text_embedding)
         errD_real = criterion(output, labelv) ##
-        errD_real.backward()
+        # errD_real.backward()
         D_x = output.data.mean()
+
+        ### calculate errD_wrong
+
+        output = netD(inputv[:-1],text_embedding[1:])
+        errD_wrong = criterion(output,labelv)
+
+
 
         # train with fake
         noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
@@ -228,9 +235,12 @@ for epoch in range(opt.niter):
         labelv = Variable(label.fill_(fake_label))
         output = netD(fake.detach(), text_embedding)
         errD_fake = criterion(output, labelv) ##
-        errD_fake.backward()
+        # errD_fake.backward()
         D_G_z1 = output.data.mean()
-        errD = errD_real + errD_fake ##
+        
+        
+        errD = errD_real + (errD_fake + errD_wrong) * 0.5 ##
+        errD.backward()
         optimizerD.step()
 
         ############################

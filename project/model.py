@@ -34,11 +34,14 @@ class _netG(nn.Module):
         self.encode_text = nn.Sequential(
             nn.Linear(nte, nt), nn.LeakyReLU(0.2, inplace=True))
 
-    def forward(self, input):
+    def forward(self, input, text_embedding):
         if isinstance(input.data, torch.cuda.FloatTensor) and self.ngpu > 1:
-            output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
+            encoded_text = nn.parallel.data_parallel(self.encode_text, text_embedding, )
+            input_new = torch.cat((input, encoded_text))
+            output = nn.parallel.data_parallel(self.main, , range(self.ngpu))
         else:
-            output = self.main(input)
+            encode_text = self.encode_text(text_embedding)
+            output = self.main(torch.cat((input, encoded_text), 0))
         return output
 
 ## TODO: pass nt and text_embedding size to the G and D and add FC to reduce text_embedding_size to nt
@@ -77,15 +80,15 @@ class _netD(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, input, txt_embedding):
+    def forward(self, input, text_embedding):
         if isinstance(input.data, torch.cuda.FloatTensor) and self.ngpu > 1:
             encoded_img = nn.parallel.data_parallel(self.main, input,
                                                range(self.ngpu))
-            encoded_text = nn.parallel.data_parallel(self.encode_text, txt_embedding, range(self.ngpu))
+            encoded_text = nn.parallel.data_parallel(self.encode_text, text_embedding, range(self.ngpu))
             ## add the same things as in the else part
         else:
             encoded_img = self.main(input)
-            encoded_text = self.encode_text(txt_embedding)
+            encoded_text = self.encode_text(text_embedding)
             encoded_text = encoded_text.expand(encoded_text.size(), 1, 1)
             encoded_text = encoded_text.repeat(1, 4, 4) ## can also directly expand, look into the syntax
             output = self.concat_image_n_text(torch.cat((encoded_img, encoded_text)), 0)

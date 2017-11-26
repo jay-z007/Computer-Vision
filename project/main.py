@@ -132,7 +132,7 @@ image_transform = transforms.Compose([
 
 dataset = TextDataset(opt.dataroot, transform=image_transform)
 
-## TODO: Make a new DataLoader and Dataset to include embeddings
+## Completed - TODO: Make a new DataLoader and Dataset to include embeddings
 dataloader = torch.utils.data.DataLoader(
     dataset,
     batch_size=opt.batchSize,
@@ -201,13 +201,13 @@ for epoch in range(opt.niter):
         ###########################
         # train with real
         netD.zero_grad()
-        real_cpu, txt_embedding = data  # Text embedding
+        real_cpu, text_embedding = data
         batch_size = real_cpu.size(0)
-        txt_embedding = Variable(txt_embedding)
+        text_embedding = Variable(text_embedding)
 
         if opt.cuda:
             real_cpu = real_cpu.cuda()
-            txt_embedding = txt_embedding.cuda()
+            text_embedding = text_embedding.cuda()
 
         ## TODO: Generate fake images first
 
@@ -216,21 +216,21 @@ for epoch in range(opt.niter):
         inputv = Variable(input)
         labelv = Variable(label)
 
-        output = netD(inputv)
-        errD_real = criterion(output, labelv)
+        output = netD(inputv, text_embedding)
+        errD_real = criterion(output, labelv) ##
         errD_real.backward()
         D_x = output.data.mean()
 
         # train with fake
         noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
         noisev = Variable(noise)
-        fake = netG(noisev)
+        fake = netG(noisev, text_embedding)
         labelv = Variable(label.fill_(fake_label))
-        output = netD(fake.detach())
-        errD_fake = criterion(output, labelv)
+        output = netD(fake.detach(), text_embedding)
+        errD_fake = criterion(output, labelv) ##
         errD_fake.backward()
         D_G_z1 = output.data.mean()
-        errD = errD_real + errD_fake
+        errD = errD_real + errD_fake ##
         optimizerD.step()
 
         ############################
@@ -239,8 +239,8 @@ for epoch in range(opt.niter):
         netG.zero_grad()
         labelv = Variable(
             label.fill_(real_label))  # fake labels are real for generator cost
-        output = netD(fake)
-        errG = criterion(output, labelv)
+        output = netD(fake, text_embedding)
+        errG = criterion(output, labelv) ##
         errG.backward()
         D_G_z2 = output.data.mean()
         optimizerG.step()
@@ -252,7 +252,7 @@ for epoch in range(opt.niter):
         if i % 100 == 0:
             vutils.save_image(
                 real_cpu, '%s/real_samples.png' % opt.outf, normalize=True)
-            fake = netG(fixed_noise)
+            fake = netG(fixed_noise, text_embedding)
             vutils.save_image(
                 fake.data,
                 '%s/fake_samples_epoch_%03d.png' % (opt.outf, epoch),

@@ -11,7 +11,9 @@ import torch.utils.data
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
+from torch.optim.lr_scheduler import StepLR
 from torch.autograd import Variable
+from datetime import datetime
 import model
 from dataset import TextDataset
 
@@ -72,7 +74,9 @@ opt = parser.parse_args()
 print(opt)
 
 try:
-    os.makedirs(opt.outf)
+    output_dir = os.path.join(opt.outf,
+                              datetime.strftime(datetime.now(), "%Y%m%d_%H%M"))
+    os.makedirs(output_dir)
 except OSError:
     pass
 
@@ -129,7 +133,7 @@ image_transform = transforms.Compose([
     transforms.RandomCrop(opt.imageSize),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
-    transforms.Normalize((0,0,0), (1,1,1))
+    transforms.Normalize((0, 0, 0), (1, 1, 1))
 ])
 
 dataset = TextDataset(opt.dataroot, transform=image_transform)
@@ -194,6 +198,8 @@ fixed_noise = Variable(fixed_noise)
 # setup optimizer
 optimizerD = optim.Adam(netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
 optimizerG = optim.Adam(netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+schedulerG = StepLR(optimizerG, step_size=100, gamma=0.5)
+schedulerD = StepLR(optimizerD, step_size=100, gamma=0.5)
 
 ## Completed TODO: Change the error loss function to include embeddings [refer main_cls.lua on the original paper repo]
 
@@ -221,14 +227,14 @@ for epoch in range(opt.niter):
 
         output = netD(inputv, text_embedding)
         errD_real = criterion(output, labelv) ##
-        # errD_real.backward()
+        errD_real.backward()
         D_x = output.data.mean()
 
         ### calculate errD_wrong
         inputv = torch.cat((inputv[1:], inputv[:1]), 0)
         output = netD(inputv, text_embedding)
         errD_wrong = criterion(output,labelv)
-
+        errD_wrong.backward()
 
 
         # train with fake
@@ -238,13 +244,14 @@ for epoch in range(opt.niter):
         labelv = Variable(label.fill_(fake_label))
         output = netD(fake.detach(), text_embedding)
         errD_fake = criterion(output, labelv) ##
-        # errD_fake.backward()
+        errD_fake.backward()
         D_G_z1 = output.data.mean()
-        
-        
+
+
         errD = errD_real + (errD_fake + errD_wrong) * 0.5 ##
-        errD.backward()
-        optimizerD.step()
+        # errD.backward()
+        # optimizerD.step()
+        schedulerD.step()
 
         ############################
         # (2) Update G network: maximize log(D(G(z)))
@@ -256,7 +263,8 @@ for epoch in range(opt.niter):
         errG = criterion(output, labelv) ##
         errG.backward()
         D_G_z2 = output.data.mean()
-        optimizerG.step()
+        # optimizerG.step()
+        schedulerG.step()
 
         print(
             '[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
@@ -264,13 +272,14 @@ for epoch in range(opt.niter):
                errG.data[0], D_x, D_G_z1, D_G_z2))
         if i % 100 == 0:
             vutils.save_image(
-                real_cpu, '%s/real_samples.png' % opt.outf, normalize=True)
+                real_cpu, '%s/real_samples.png' % output_dir, normalize=True)
             fake = netG(fixed_noise, text_embedding)
             vutils.save_image(
                 fake.data,
-                '%s/fake_samples_epoch_%03d.png' % (opt.outf, epoch),
+                '%s/fake_samples_epoch_%03d.png' % (output_dir, epoch),
                 normalize=True)
 
     # do checkpointing
-    torch.save(netG.state_dict(), '%s/netG_epoch_%d.pth' % (opt.outf, epoch))
-    torch.save(netD.state_dict(), '%s/netD_epoch_%d.pth' % (opt.outf, epoch))
+
+    torch.save(netG.state_dict(), '%s/netG_epoch.pth' % (output_dir))
+    torch.save(netD.state_dict(), '%s/netD_epoch.pth' % (output_dir))

@@ -1,34 +1,64 @@
 import torch
 import torch.nn as nn
 
+# import pdb; pdb.set_trace()
 
 ## TODO: Change the models to include text embeddings
 ## TODO: Add FC to reduce the text_embedding to the size of nt
 class _netG(nn.Module):
     def __init__(self, ngpu, nz, ngf, nc, nte, nt):
         super(_netG, self).__init__()
+        self.nt = nt
         self.ngpu = ngpu
         self.main = nn.Sequential(
             # input is Z, going into a convolution
             nn.ConvTranspose2d(nz + nt, ngf * 8, 4, 1, 0, bias=True),
             nn.BatchNorm2d(ngf * 8),
-            nn.ReLU(True),
+            # nn.ReLU(True),
             # state size. (ngf*8) x 4 x 4
 
             # TODO: check out paper's code and add layers if required
 
             ##there are more conv2d layers involved here in 
-            # https://github.com/reedscot/icml2016/blob/master/main_cls_int.lua
+            # https://github.com/reedscot/icml2016/blob/master/main_cls.lua
+
+            nn.Conv2d(ngf*8,ngf*2,1,1),
+            nn.BatchNorm2d(ngf * 2),
+            nn.ReLU(True),
+
+            nn.Conv2d(ngf*2,ngf*2,3,1,1),
+            nn.BatchNorm2d(ngf * 2),
+            nn.ReLU(True),
+
+            nn.Conv2d(ngf*2,ngf*8,3,1,1),
+            nn.BatchNorm2d(ngf * 8),
+            nn.ReLU(inplace=True),
+            
+
 
             nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=True),   
             nn.BatchNorm2d(ngf * 4),
-            nn.ReLU(True),
+            # nn.ReLU(True),
             # state size. (ngf*4) x 8 x 8
             
             # TODO: check out paper's code and add layers if required
             
             ##there are more conv2d layers involved here in 
-            # https://github.com/reedscot/icml2016/blob/master/main_cls_int.lua
+            # https://github.com/reedscot/icml2016/blob/master/main_cls.lua
+            
+            
+            nn.Conv2d(ngf*4,ngf,1,1),
+            nn.BatchNorm2d(ngf),
+            nn.ReLU(True),
+
+            nn.Conv2d(ngf,ngf,3,1,1),
+            nn.BatchNorm2d(ngf),
+            nn.ReLU(True),
+
+            nn.Conv2d(ngf,ngf*4,3,1,1),
+            nn.BatchNorm2d(ngf * 4),
+            nn.ReLU(inplace=True),
+            
             
             nn.ConvTranspose2d(ngf * 4, ngf * 2, 4, 2, 1, bias=True),
             nn.BatchNorm2d(ngf * 2),
@@ -52,7 +82,7 @@ class _netG(nn.Module):
             input_new = torch.cat((input, encoded_text))
             output = nn.parallel.data_parallel(self.main,input_new, range(self.ngpu))
         else:
-            encoded_text = self.encode_text(text_embedding)
+            encoded_text = self.encode_text(text_embedding).view(-1,self.nt,1,1)
             output = self.main(torch.cat((input, encoded_text), 1))
         return output
 
@@ -78,8 +108,21 @@ class _netD(nn.Module):
             # state size. (ndf*4) x 8 x 8
             nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=True),
             nn.BatchNorm2d(ndf * 8),
+
+            nn.Conv2d(ndf*8,ndf*2,1,1),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            nn.Conv2d(ndf*2,ndf*2,3,1,1),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            nn.Conv2d(ndf*2,ndf*8,3,1,1),
+            nn.BatchNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, inplace=True))
+
         # state size. (ndf*8) x 4 x 4
+
         ## add another sequential plot after this line to add the embedding and process it to find a single ans
         # TODO: confirm if what we are doing is same as given in paper code
         self.encode_text = nn.Sequential(

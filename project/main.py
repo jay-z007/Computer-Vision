@@ -77,7 +77,7 @@ except OSError:
     pass
 
 if opt.manualSeed is None:
-    opt.manualSeed = random.randint(1, 10000)
+    opt.manualSeed = 2017  #use random.randint(1, 10000) for randomness, shouldnt be done when we want to continue training from a checkpoint
 print("Random Seed: ", opt.manualSeed)
 random.seed(opt.manualSeed)
 torch.manual_seed(opt.manualSeed)
@@ -155,7 +155,7 @@ def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
         m.weight.data.normal_(0.0, 0.02)
-        m.bias.data.fill_(0)
+        # m.bias.data.fill_(0)
     elif classname.find('BatchNorm') != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
@@ -212,8 +212,6 @@ for epoch in range(opt.niter):
             real_cpu = real_cpu.cuda()
             text_embedding = text_embedding.cuda()
 
-        ## TODO: Generate fake images first
-
         input.resize_as_(real_cpu).copy_(real_cpu)
         label.resize_(batch_size).fill_(real_label)
         inputv = Variable(input)
@@ -221,14 +219,14 @@ for epoch in range(opt.niter):
 
         output = netD(inputv, text_embedding)
         errD_real = criterion(output, labelv) ##
-        # errD_real.backward()
+        errD_real.backward()
         D_x = output.data.mean()
 
         ### calculate errD_wrong
         inputv = torch.cat((inputv[1:], inputv[:1]), 0)
         output = netD(inputv, text_embedding)
-        errD_wrong = criterion(output,labelv)
-
+        errD_wrong = criterion(output,labelv)*0.5
+        errD_wrong.backward()
 
 
         # train with fake
@@ -237,13 +235,13 @@ for epoch in range(opt.niter):
         fake = netG(noisev, text_embedding)
         labelv = Variable(label.fill_(fake_label))
         output = netD(fake.detach(), text_embedding)
-        errD_fake = criterion(output, labelv) ##
-        # errD_fake.backward()
+        errD_fake = criterion(output, labelv) *0.5
+        errD_fake.backward()
         D_G_z1 = output.data.mean()
         
         
-        errD = errD_real + (errD_fake + errD_wrong) * 0.5 ##
-        errD.backward()
+        errD = errD_real + errD_fake + errD_wrong
+        # errD.backward()
         optimizerD.step()
 
         ############################

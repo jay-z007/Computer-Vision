@@ -1,1 +1,4 @@
 *.pdf
+project/birds/
+project/output/
+project/cub

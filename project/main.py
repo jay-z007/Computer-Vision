@@ -15,6 +15,8 @@ from torch.autograd import Variable
 import model
 from dataset import TextDataset
 
+# import pdb; pdb.set_trace()
+
 parser = argparse.ArgumentParser()
 # parser.add_argument(
 #     '--dataset',
@@ -32,11 +34,11 @@ parser.add_argument(
     type=int,
     default=64,
     help='the height / width of the input image to network')
-# parser.add_argument(
-#     '--nte',
-#     type=int,
-#     default=1024,
-#     help='the size of the text embedding vector')
+parser.add_argument(
+    '--nte',
+    type=int,
+    default=1024,
+    help='the size of the text embedding vector')
 parser.add_argument(
     '--nt',
     type=int,
@@ -127,7 +129,7 @@ image_transform = transforms.Compose([
     transforms.RandomCrop(opt.imageSize),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
-    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    transforms.Normalize((0,0,0), (1,1,1))
 ])
 
 dataset = TextDataset(opt.dataroot, transform=image_transform)
@@ -153,6 +155,7 @@ def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
         m.weight.data.normal_(0.0, 0.02)
+        m.bias.data.fill_(0)
     elif classname.find('BatchNorm') != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
@@ -222,8 +225,8 @@ for epoch in range(opt.niter):
         D_x = output.data.mean()
 
         ### calculate errD_wrong
-
-        output = netD(inputv[:-1],text_embedding[1:])
+        inputv = torch.cat((inputv[1:], inputv[:1]), 0)
+        output = netD(inputv, text_embedding)
         errD_wrong = criterion(output,labelv)
 
 

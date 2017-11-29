@@ -14,10 +14,22 @@ class _netG(nn.Module):
             nn.BatchNorm2d(ngf * 8),
             nn.ReLU(True),
             # state size. (ngf*8) x 4 x 4
-            nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=True),
+
+            # TODO: check out paper's code and add layers if required
+
+            ##there are more conv2d layers involved here in 
+            # https://github.com/reedscot/icml2016/blob/master/main_cls_int.lua
+
+            nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=True),   
             nn.BatchNorm2d(ngf * 4),
             nn.ReLU(True),
             # state size. (ngf*4) x 8 x 8
+            
+            # TODO: check out paper's code and add layers if required
+            
+            ##there are more conv2d layers involved here in 
+            # https://github.com/reedscot/icml2016/blob/master/main_cls_int.lua
+            
             nn.ConvTranspose2d(ngf * 4, ngf * 2, 4, 2, 1, bias=True),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
@@ -38,10 +50,10 @@ class _netG(nn.Module):
         if isinstance(input.data, torch.cuda.FloatTensor) and self.ngpu > 1:
             encoded_text = nn.parallel.data_parallel(self.encode_text, text_embedding, )
             input_new = torch.cat((input, encoded_text))
-            output = nn.parallel.data_parallel(self.main, , range(self.ngpu))
+            output = nn.parallel.data_parallel(self.main,input_new, range(self.ngpu))
         else:
-            encode_text = self.encode_text(text_embedding)
-            output = self.main(torch.cat((input, encoded_text), 0))
+            encoded_text = self.encode_text(text_embedding)
+            output = self.main(torch.cat((input, encoded_text), 1))
         return output
 
 ## TODO: pass nt and text_embedding size to the G and D and add FC to reduce text_embedding_size to nt
@@ -49,6 +61,8 @@ class _netD(nn.Module):
     def __init__(self, ngpu, nc, ndf, nte, nt):
         super(_netD, self).__init__()
         self.ngpu = ngpu
+        self.nt = nt
+        self.nte = nte
         self.main = nn.Sequential(
             # input is (nc) x 64 x 64
             nn.Conv2d(nc, ndf, 4, 2, 1, bias=True),
@@ -67,7 +81,7 @@ class _netD(nn.Module):
             nn.LeakyReLU(0.2, inplace=True))
         # state size. (ndf*8) x 4 x 4
         ## add another sequential plot after this line to add the embedding and process it to find a single ans
-
+        # TODO: confirm if what we are doing is same as given in paper code
         self.encode_text = nn.Sequential(
             nn.Linear(nte, nt),
             nn.LeakyReLU(0.2, inplace=True)
@@ -89,8 +103,10 @@ class _netD(nn.Module):
         else:
             encoded_img = self.main(input)
             encoded_text = self.encode_text(text_embedding)
-            encoded_text = encoded_text.expand(encoded_text.size(), 1, 1)
-            encoded_text = encoded_text.repeat(1, 4, 4) ## can also directly expand, look into the syntax
-            output = self.concat_image_n_text(torch.cat((encoded_img, encoded_text)), 0)
+            encoded_text = encoded_text.view(-1, self.nt, 1,1)
+            # encoded_text = encoded_text.unsqueeze(-1).expand(64,self.nt, 4)
+            # encoded_text = encoded_text.unsqueeze(-1).expand(64,self.nt, 4,4)
+            encoded_text = encoded_text.repeat(1, 1, 4, 4) ## can also directly expand, look into the syntax
+            output = self.concat_image_n_text(torch.cat((encoded_img, encoded_text),1))
 
         return output.view(-1, 1).squeeze(1)

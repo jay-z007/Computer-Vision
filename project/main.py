@@ -243,17 +243,17 @@ if opt.train:
 				   errG.data[0], D_x, D_G_z1, D_G_z2))
 			if i % 100 == 0:
 				vutils.save_image(
-					real_cpu, '%s/real_samples.png' % opt.outf, normalize=True)
+					real_cpu, '%s/real_samples.png' % output_dir, normalize=True)
 				fake = netG(fixed_noise, text_embedding)
 				vutils.save_image(
 					fake.data,
-					'%s/fake_samples_epoch_%03d.png' % (opt.outf, epoch),
+					'%s/fake_samples_epoch_%03d.png' % (output_dir, epoch),
 					normalize=True)
 
 		# do checkpointing
-		torch.save(netG.state_dict(), '%s/netG_epoch_%d.pth' % (opt.outf,
+		torch.save(netG.state_dict(), '%s/netG_epoch_%d.pth' % (output_dir,
 																epoch))
-		torch.save(netD.state_dict(), '%s/netD_epoch_%d.pth' % (opt.outf,
+		torch.save(netD.state_dict(), '%s/netD_epoch_%d.pth' % (output_dir,
 																epoch))
 
 else:

@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
+from torch.optim.lr_scheduler import StepLR
 import torch.utils.data
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
@@ -15,7 +16,7 @@ from torch.autograd import Variable
 import model
 from dataset import TextDataset
 
-# import pdb; pdb.set_trace()
+import pdb; pdb.set_trace()
 
 parser = argparse.ArgumentParser()
 # parser.add_argument(
@@ -44,7 +45,6 @@ parser.add_argument(
     type=int,
     default=256,
     help='the reduced size of the text embedding vector')
-
 parser.add_argument(
     '--nz', type=int, default=100, help='size of the latent z vector')
 parser.add_argument('--ngf', type=int, default=64)
@@ -77,7 +77,7 @@ except OSError:
     pass
 
 if opt.manualSeed is None:
-    opt.manualSeed = 2017  #use random.randint(1, 10000) for randomness, shouldnt be done when we want to continue training from a checkpoint
+    opt.manualSeed = random.randint(1, 10000)  #use random.randint(1, 10000) for randomness, shouldnt be done when we want to continue training from a checkpoint
 print("Random Seed: ", opt.manualSeed)
 random.seed(opt.manualSeed)
 torch.manual_seed(opt.manualSeed)
@@ -197,7 +197,10 @@ optimizerG = optim.Adam(netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
 
 ## Completed TODO: Change the error loss function to include embeddings [refer main_cls.lua on the original paper repo]
 
-for epoch in range(opt.niter):
+for epoch in range(1,opt.niter+1):
+    if epoch %75 == 0:
+        optimizerG.param_groups[0]['lr']/=2
+        optimizerD.param_groups[0]['lr']/=2
     for i, data in enumerate(dataloader, 0):
         ############################
         # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
@@ -255,6 +258,8 @@ for epoch in range(opt.niter):
         errG.backward()
         D_G_z2 = output.data.mean()
         optimizerG.step()
+
+
 
         print(
             '[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'

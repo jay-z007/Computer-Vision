@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
+from torch.optim.lr_scheduler import StepLR
 import torch.utils.data
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
@@ -17,7 +18,7 @@ from datetime import datetime
 import model
 from dataset import TextDataset
 
-# import pdb; pdb.set_trace()
+import pdb; pdb.set_trace()
 
 parser = argparse.ArgumentParser()
 # parser.add_argument(
@@ -46,7 +47,6 @@ parser.add_argument(
     type=int,
     default=256,
     help='the reduced size of the text embedding vector')
-
 parser.add_argument(
     '--nz', type=int, default=100, help='size of the latent z vector')
 parser.add_argument('--ngf', type=int, default=64)
@@ -81,7 +81,7 @@ except OSError:
     pass
 
 if opt.manualSeed is None:
-    opt.manualSeed = random.randint(1, 10000)
+    opt.manualSeed = random.randint(1, 10000)  #use random.randint(1, 10000) for randomness, shouldnt be done when we want to continue training from a checkpoint
 print("Random Seed: ", opt.manualSeed)
 random.seed(opt.manualSeed)
 torch.manual_seed(opt.manualSeed)
@@ -159,7 +159,7 @@ def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
         m.weight.data.normal_(0.0, 0.02)
-        m.bias.data.fill_(0)
+        # m.bias.data.fill_(0)
     elif classname.find('BatchNorm') != -1:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
@@ -203,7 +203,10 @@ schedulerD = StepLR(optimizerD, step_size=100, gamma=0.5)
 
 ## Completed TODO: Change the error loss function to include embeddings [refer main_cls.lua on the original paper repo]
 
-for epoch in range(opt.niter):
+for epoch in range(1,opt.niter+1):
+    if epoch %75 == 0:
+        optimizerG.param_groups[0]['lr']/=2
+        optimizerD.param_groups[0]['lr']/=2
     for i, data in enumerate(dataloader, 0):
         ############################
         # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
@@ -218,8 +221,6 @@ for epoch in range(opt.niter):
             real_cpu = real_cpu.cuda()
             text_embedding = text_embedding.cuda()
 
-        ## TODO: Generate fake images first
-
         input.resize_as_(real_cpu).copy_(real_cpu)
         label.resize_(batch_size).fill_(real_label)
         inputv = Variable(input)
@@ -233,7 +234,7 @@ for epoch in range(opt.niter):
         ### calculate errD_wrong
         inputv = torch.cat((inputv[1:], inputv[:1]), 0)
         output = netD(inputv, text_embedding)
-        errD_wrong = criterion(output,labelv)
+        errD_wrong = criterion(output,labelv)*0.5
         errD_wrong.backward()
 
 
@@ -243,15 +244,14 @@ for epoch in range(opt.niter):
         fake = netG(noisev, text_embedding)
         labelv = Variable(label.fill_(fake_label))
         output = netD(fake.detach(), text_embedding)
-        errD_fake = criterion(output, labelv) ##
+        errD_fake = criterion(output, labelv) *0.5
         errD_fake.backward()
         D_G_z1 = output.data.mean()
-
-
-        errD = errD_real + (errD_fake + errD_wrong) * 0.5 ##
+        
+        
+        errD = errD_real + errD_fake + errD_wrong
         # errD.backward()
-        # optimizerD.step()
-        schedulerD.step()
+        optimizerD.step()
 
         ############################
         # (2) Update G network: maximize log(D(G(z)))
@@ -265,6 +265,8 @@ for epoch in range(opt.niter):
         D_G_z2 = output.data.mean()
         # optimizerG.step()
         schedulerG.step()
+
+
 
         print(
             '[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'

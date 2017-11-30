@@ -32,7 +32,7 @@ class TextDataset(data.Dataset):
 
         self.filenames = self.load_filenames(split_dir)
         self.embeddings = self.load_embedding(split_dir, embedding_type)
-        # self.captions = self.load_all_captions()
+        self.captions = self.load_all_captions()
 
     def get_img(self, img_path, bbox):
         img = Image.open(img_path).convert('RGB')
@@ -124,16 +124,16 @@ class TextDataset(data.Dataset):
             bbox = None
             data_dir = self.data_dir
 
-        # captions = self.captions[key]
+        captions = self.captions[key]
         embeddings = self.embeddings[index, :, :]
         img_name = '%s/images/%s.jpg' % (data_dir, key)
         img = self.get_img(img_name, bbox)
 
-        embedding_ix = random.randint(0, embeddings.shape[0]-1)
-        embedding = embeddings[embedding_ix, :]
+        rand_ix = random.randint(0, embeddings.shape[0]-1)
+        embedding = embeddings[rand_ix, :]
         if self.target_transform is not None:
             embedding = self.target_transform(embedding)
-        return img, embedding
+        return img, embedding,captions[rand_ix]
 
     def __len__(self):
         return len(self.filenames)

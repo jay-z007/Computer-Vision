@@ -1,10 +1,8 @@
 import torch
 import torch.nn as nn
 
-# import pdb; pdb.set_trace()
-
-## TODO: Change the models to include text embeddings
-## TODO: Add FC to reduce the text_embedding to the size of nt
+## Completed - TODO: Change the models to include text embeddings
+## Completed - TODO: Add FC to reduce the text_embedding to the size of nt
 class _netG(nn.Module):
     def __init__(self, ngpu, nz, ngf, nc, nte, nt):
         super(_netG, self).__init__()
@@ -17,7 +15,7 @@ class _netG(nn.Module):
             # nn.ReLU(True),
             # state size. (ngf*8) x 4 x 4
 
-            # TODO: check out paper's code and add layers if required
+            # Completed - TODO: check out paper's code and add layers if required
 
             ##there are more conv2d layers involved here in 
             # https://github.com/reedscot/icml2016/blob/master/main_cls.lua
@@ -46,7 +44,7 @@ class _netG(nn.Module):
             # nn.ReLU(True),
             # state size. (ngf*4) x 8 x 8
             
-            # TODO: check out paper's code and add layers if required
+            # Completed - TODO: check out paper's code and add layers if required
             
             ##there are more conv2d layers involved here in 
             # https://github.com/reedscot/icml2016/blob/master/main_cls.lua
@@ -100,7 +98,7 @@ class _netG(nn.Module):
             output = self.main(torch.cat((input, encoded_text), 1))
         return output
 
-## TODO: pass nt and text_embedding size to the G and D and add FC to reduce text_embedding_size to nt
+## Completed - TODO: pass nt and text_embedding size to the G and D and add FC to reduce text_embedding_size to nt
 class _netD(nn.Module):
     def __init__(self, ngpu, nc, ndf, nte, nt):
         super(_netD, self).__init__()
@@ -141,7 +139,7 @@ class _netD(nn.Module):
         # state size. (ndf*8) x 4 x 4
 
         ## add another sequential plot after this line to add the embedding and process it to find a single ans
-        # TODO: confirm if what we are doing is same as given in paper code
+        # Completed - TODO: confirm if what we are doing is same as given in paper code
         self.encode_text = nn.Sequential(
             nn.Linear(nte, nt),
             nn.LeakyReLU(0.2, inplace=True)
@@ -166,8 +164,6 @@ class _netD(nn.Module):
             encoded_img = self.main(input)
             encoded_text = self.encode_text(text_embedding)
             encoded_text = encoded_text.view(-1, self.nt, 1,1)
-            # encoded_text = encoded_text.unsqueeze(-1).expand(64,self.nt, 4)
-            # encoded_text = encoded_text.unsqueeze(-1).expand(64,self.nt, 4,4)
             encoded_text = encoded_text.repeat(1, 1, 4, 4) ## can also directly expand, look into the syntax
             output = self.concat_image_n_text(torch.cat((encoded_img, encoded_text),1))
 

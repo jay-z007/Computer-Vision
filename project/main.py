@@ -75,13 +75,9 @@ opt = parser.parse_args()
 print(opt)
 
 try:
-<<<<<<< HEAD
     output_dir = os.path.join(opt.outf,
                               datetime.strftime(datetime.now(), "%Y%m%d_%H%M"))
     os.makedirs(output_dir)
-=======
-	os.makedirs(opt.outf)
->>>>>>> 93a937be718a0d94139d85f5c7aba88dfee15c36
 except OSError:
 	pass
 
@@ -135,17 +131,10 @@ if torch.cuda.is_available() and not opt.cuda:
 # assert dataset
 
 image_transform = transforms.Compose([
-<<<<<<< HEAD
     transforms.RandomCrop(opt.imageSize),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
     transforms.Normalize((0, 0, 0), (1, 1, 1))
-=======
-	transforms.RandomCrop(opt.imageSize),
-	transforms.RandomHorizontalFlip(),
-	transforms.ToTensor(),
-	transforms.Normalize((0,0,0), (1,1,1))
->>>>>>> 93a937be718a0d94139d85f5c7aba88dfee15c36
 ])
 
 
@@ -318,18 +307,19 @@ else:
 		# (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
 		###########################
 		# train with real
-		real_image, text_embedding,caption = data
-		batch_size = real_cpu.size(0)
+		real_image, text_embedding, caption = data
+		batch_size = real_image.size(0)
 		text_embedding = Variable(text_embedding)
 
 		if opt.cuda:
-			real_cpu = real_cpu.cuda()
+			real_image = real_image.cuda()
 			text_embedding = text_embedding.cuda()
 
-		input.resize_as_(real_cpu).copy_(real_cpu)
+		input.resize_as_(real_image).copy_(real_image)
 		inputv = Variable(input)
 
 		noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
 		noisev = Variable(noise)
 		synthetic_image = netG(noisev, text_embedding)
-		pass
+		
+        print synthetic_image

@@ -68,7 +68,7 @@ parser.add_argument(
 	help='folder to output images and model checkpoints')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 parser.add_argument(
-	'--train', default=True, help="choose whether to train the model or show demo")
+	'--eval', action='store_true', help="choose whether to train the model or show demo")
 opt = parser.parse_args()
 print(opt)
 
@@ -142,7 +142,6 @@ ndf = int(opt.ndf)
 nc = 3
 nt = int(opt.nt)
 nte = int(opt.nte)
-TRAIN_FLAG = bool(opt.train)
 
 
 # custom weights initialization called on netG and netD
@@ -186,7 +185,7 @@ if opt.cuda:
 
 fixed_noise = Variable(fixed_noise)
 
-if TRAIN_FLAG:
+if not opt.eval:
 
 
 	train_dataset = TextDataset(opt.dataroot, transform=image_transform)
@@ -270,7 +269,7 @@ if TRAIN_FLAG:
 
 			print(
 				'[%d/%d][%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f / %.4f'
-				% (epoch, opt.niter, i, len(dataloader), errD.data[0],
+				% (epoch, opt.niter, i, len(train_dataloader), errD.data[0],
 				errG.data[0], D_x, D_G_z1, D_G_z2))
 			if i % 100 == 0:
 				vutils.save_image(
@@ -286,12 +285,11 @@ if TRAIN_FLAG:
 		torch.save(netD.state_dict(), '%s/netD_epoch_%d.pth' % (opt.outf, epoch))
 
 else:
-	netG.load_state_dict(torch.load(opt.netG))
 	test_dataset = TextDataset(opt.dataroot, transform=image_transform,split='test')
 
 	## Completed - TODO: Make a new DataLoader and Dataset to include embeddings
 	test_dataloader = torch.utils.data.DataLoader(
-		dataset,
+		test_dataset,
 		batch_size=opt.batchSize,
 		shuffle=True,
 		num_workers=int(opt.workers))
@@ -299,22 +297,39 @@ else:
 	
 
 	for i, data in enumerate(test_dataloader, 0):
-		############################
-		# (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
-		###########################
-		# train with real
 		real_image, text_embedding,caption = data
-		batch_size = real_cpu.size(0)
+		batch_size = real_image.size(0)
 		text_embedding = Variable(text_embedding)
 
 		if opt.cuda:
-			real_cpu = real_cpu.cuda()
+			real_image = real_image.cuda()
 			text_embedding = text_embedding.cuda()
 
-		input.resize_as_(real_cpu).copy_(real_cpu)
+		input.resize_as_(real_image).copy_(real_image)
 		inputv = Variable(input)
 
 		noise.resize_(batch_size, nz, 1, 1).normal_(0, 1)
 		noisev = Variable(noise)
+		num_test_outputs = 10
+		
+
+		# for count in range(num_test_outputs):
+		# 	print (count)
+		count =0
+		print (i)
 		synthetic_image = netG(noisev, text_embedding)
-		pass
+		synthetic_image = synthetic_image.detach()
+		for i in range(synthetic_image.size()[0]):
+			cap = caption[i].strip(".")
+			cap = cap.replace("/"," or ")
+			cap = cap.replace(" ","_")
+			if len(cap) > 95:
+				cap = cap[:95]
+			file_path = './eval_results/'+cap
+			# if not os.path.exists(file_path):
+			# 	os.makedirs(file_path)
+			try:
+				vutils.save_image(synthetic_image[i].data,file_path+'_'+str(count)+'.jpg')
+				# vutils.save_image(synthetic_image[i].data,os.path.join(file_path,str(count)+'.jpg'))
+			except e:
+				print (e)
